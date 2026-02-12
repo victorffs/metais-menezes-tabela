@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prateleiras Novas - Lista Completa</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px;
+    }
+    .card {
+      background: white;
+      width: 900px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: white;
+      padding: 40px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 100px;
+      height: 100px;
+      object-fit: contain;
+      background: white;
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      margin-bottom: 8px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .header h2 {
+      margin: 4px 0 0 0;
+      font-size: 16px;
+      font-weight: 500;
+      color: #cbd5e1;
+      text-transform: none;
+      letter-spacing: 0.5px;
+      font-style: italic;
+      max-width: 600px;
+    }
+    .header p {
+      margin: 8px 0 0 0;
+      background: rgba(255,255,255,0.1);
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.5px;
+      display: inline-block;
+    }
+    .content {
+      padding: 40px;
+      column-count: 2;
+      column-gap: 60px;
+    }
+    .footer {
+      background: #f1f5f9;
+      padding: 24px 40px;
+      text-align: center;
+      color: #475569;
+      font-size: 16px;
+      font-weight: 600;
+      border-top: 1px solid #e2e8f0;
+    }
+    .group {
+      margin-bottom: 32px;
+      break-inside: avoid;
+    }
+    .group-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .item:last-child {
+      border-bottom: none;
+    }
+    .dim {
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 3px 8px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .price {
+      font-size: 16px;
+      font-weight: 600;
+      color: #0f172a;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .unit-label {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 400;
+      margin-left: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <img src="logo-512x512.png" alt="Logo" class="logo">
+      <div>
+        <h1>METAIS MENEZES</h1>
+        <h2>Qualidade, resistência e acabamento profissional em aço inox.</h2>
+        <p>📋 Estoque Atual &bull; <span id="date"></span></p>
+      </div>
+    </div>
+    <div class="content" id="list"></div>
+    <div class="footer">
+      ✨ Todas acompanham mão francesa reforçada e galvanizada
+    </div>
+  </div>
+
+  <script>
+    // EDIT DATA HERE
+    const data = [
+      { depth: "20-23cm", items: [
+        { dim: "200cm x 20cm", qty: 1, price: "$ 360", unit: false },
+        { dim: "122cm x 23cm", qty: 1, price: "$ 250", unit: false }
+      ]},
+      { depth: "25cm", items: [
+        { dim: "60cm x 25cm", qty: 2, price: "$ 135", unit: true },
+        { dim: "80cm x 25cm", qty: 4, price: "$ 180", unit: true },
+        { dim: "100cm x 25cm", qty: 8, price: "$ 225", unit: true },
+        { dim: "116cm x 25cm", qty: 1, price: "$ 260", unit: false },
+        { dim: "120cm x 25cm", qty: 5, price: "$ 270", unit: true },
+        { dim: "151cm x 25cm", qty: 1, price: "$ 340", unit: false },
+        { dim: "196cm x 25cm", qty: 1, price: "$ 440", unit: false }
+      ]},
+      { depth: "30cm", items: [
+        { dim: "60cm x 30cm", qty: 6, price: "$ 160", unit: true },
+        { dim: "80cm x 30cm", qty: 1, price: "$ 215", unit: false },
+        { dim: "100cm x 30cm", qty: 16, price: "$ 270", unit: true },
+        { dim: "115cm x 30cm", qty: 2, price: "$ 305", unit: true },
+        { dim: "120cm x 30cm", qty: 2, price: "$ 325", unit: true },
+        { dim: "125cm x 30cm", qty: 1, price: "$ 335", unit: false },
+        { dim: "130cm x 30cm", qty: 1, price: "$ 350", unit: false },
+        { dim: "191cm x 30cm", qty: 2, price: "$ 515", unit: true },
+        { dim: "196cm x 30cm", qty: 2, price: "$ 530", unit: true }
+      ]},
+      { depth: "35cm", items: [
+        { dim: "60cm x 35cm", qty: 4, price: "$ 190", unit: true },
+        { dim: "80cm x 35cm", qty: 5, price: "$ 250", unit: true },
+        { dim: "100cm x 35cm", qty: 8, price: "$ 315", unit: true },
+        { dim: "119cm x 35cm", qty: 5, price: "$ 370", unit: true },
+        { dim: "120cm x 35cm", qty: 9, price: "$ 375", unit: true },
+        { dim: "121cm x 35cm", qty: 3, price: "$ 380", unit: true },
+        { dim: "125cm x 35cm", qty: 1, price: "$ 395", unit: false },
+        { dim: "136cm x 35cm", qty: 2, price: "$ 425", unit: true },
+        { dim: "145cm x 35cm", qty: 1, price: "$ 450", unit: false },
+        { dim: "170cm x 35cm", qty: 2, price: "$ 535", unit: true },
+        { dim: "200cm x 35cm", qty: 1, price: "$ 650", unit: false }
+      ]},
+      { depth: "40cm", items: [
+        { dim: "60cm x 40cm", qty: 6, price: "$ 215", unit: true },
+        { dim: "80cm x 40cm", qty: 5, price: "$ 290", unit: true },
+        { dim: "90cm x 40cm", qty: 2, price: "$ 325", unit: true },
+        { dim: "100cm x 40cm", qty: 19, price: "$ 360", unit: true },
+        { dim: "120cm x 40cm", qty: 14, price: "$ 430", unit: true },
+        { dim: "136cm x 40cm", qty: 1, price: "$ 490", unit: false },
+        { dim: "140cm x 40cm", qty: 4, price: "$ 505", unit: true },
+        { dim: "150cm x 40cm", qty: 4, price: "$ 540", unit: true },
+        { dim: "192cm x 40cm", qty: 2, price: "$ 680", unit: true },
+        { dim: "200cm x 40cm", qty: 2, price: "$ 720", unit: true }
+      ]},
+      { depth: "45-57cm", items: [
+        { dim: "120cm x 45cm", qty: 1, price: "$ 485", unit: false },
+        { dim: "121cm x 50cm", qty: 1, price: "$ 545", unit: false },
+        { dim: "116cm x 52cm", qty: 1, price: "$ 540", unit: false },
+        { dim: "39cm x 57cm", qty: 1, price: "$ 200", unit: false }
+      ]}
+    ];
+
+    const list = document.getElementById('list');
+
+    // Set current date
+    const now = new Date();
+    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    document.getElementById('date').textContent = `${months[now.getMonth()]} ${now.getFullYear()}`;
+    
+    data.forEach(group => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'group';
+      
+      let itemsHtml = group.items.map(item => `
+        <div class="item">
+          <div class="dim">${item.dim}</div>
+          <div class="meta">
+            <span class="badge">${item.qty} un.</span>
+            <div class="price">
+              ${item.price}<span class="unit-label">${(item.unit || item.qty > 1) ? '/cada' : ''}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      groupDiv.innerHTML = `
+        <div class="group-title">Profundidade ${group.depth}</div>
+        <div class="items">${itemsHtml}</div>
+      `;
+      list.appendChild(groupDiv);
+    });
+  </script>
+</body>
+</html>
