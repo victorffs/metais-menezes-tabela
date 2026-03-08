@@ -63,6 +63,39 @@
       max-width: 600px;
       line-height: 1.4;
     }
+    .export-bar {
+      margin-top: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .export-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #0f172a;
+      background: #fbbf24;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    .export-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 24px rgba(0,0,0,0.25);
+    }
+    .export-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .export-hint {
+      margin: 0;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+    }
     .content {
       padding: 20px;
       column-count: 1;
@@ -87,6 +120,24 @@
         width: 100px;
         height: 100px;
       }
+    }
+    body.export-mode {
+      background-color: #0f172a;
+      padding: 20px 0;
+    }
+    body.export-mode .card {
+      width: 1080px;
+      max-width: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    body.export-mode .content {
+      column-count: 1 !important;
+      column-gap: 0;
+      padding: 50px 80px;
+    }
+    body.export-mode .export-bar {
+      display: none;
     }
     .footer {
       background: #f1f5f9;
@@ -163,6 +214,10 @@
         <h1>METAIS MENEZES</h1>
         <h2>Qualidade, resistência e acabamento profissional em aço inox.</h2>
         <p>📋 Estoque Atual &bull; <span id="date"></span></p>
+      </div>
+      <div class="export-bar">
+        <button id="exportImageBtn" class="export-btn">Gerar imagem vertical</button>
+        <p class="export-hint">Baixa um PNG 1080×1920 pronto pra WhatsApp/Stories</p>
       </div>
     </div>
     <div class="content" id="list"></div>
@@ -300,10 +355,11 @@
         "dim": "80cm x 30cm",
         "width": 80,
         "depth": 30,
-        "qty": 2,
-        "price": "$ 215",
+        "qty": 4,
+        "price": 215,
         "priceValue": 215,
-        "unit": true
+        "unit": true,
+        "priceFormatted": "$ 215"
       },
       {
         "dim": "100cm x 30cm",
@@ -403,6 +459,15 @@
         "unit": true
       },
       {
+        "dim": "80cm x 35cm",
+        "width": 80,
+        "depth": 35,
+        "qty": 3,
+        "price": "$ 250",
+        "priceValue": 250,
+        "unit": true
+      },
+      {
         "dim": "100cm x 35cm",
         "width": 100,
         "depth": 35,
@@ -486,6 +551,15 @@
         "qty": 6,
         "price": "$ 215",
         "priceValue": 215,
+        "unit": true
+      },
+      {
+        "dim": "80cm x 40cm",
+        "width": 80,
+        "depth": 40,
+        "qty": 5,
+        "price": "$ 290",
+        "priceValue": 290,
         "unit": true
       },
       {
@@ -646,6 +720,56 @@
       `;
       list.appendChild(groupDiv);
     });
+
+    const exportBtn = document.getElementById('exportImageBtn');
+    let html2canvasLoader;
+    const ensureHtml2Canvas = () => {
+      if (window.html2canvas) return Promise.resolve(window.html2canvas);
+      if (!html2canvasLoader) {
+        html2canvasLoader = new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+          script.onload = () => resolve(window.html2canvas);
+          script.onerror = () => reject(new Error('Não foi possível carregar o html2canvas'));
+          document.body.appendChild(script);
+        });
+      }
+      return html2canvasLoader;
+    };
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    if (exportBtn) {
+      exportBtn.addEventListener('click', async () => {
+        const defaultLabel = exportBtn.textContent;
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'Gerando PNG...';
+
+        try {
+          const html2canvas = await ensureHtml2Canvas();
+          document.body.classList.add('export-mode');
+          await sleep(80);
+          const card = document.querySelector('.card');
+          const canvas = await html2canvas(card, {
+            scale: window.devicePixelRatio > 1 ? window.devicePixelRatio : 2,
+            useCORS: true,
+            backgroundColor: '#f8fafc'
+          });
+          const link = document.createElement('a');
+          const stamp = new Date().toISOString().split('T')[0];
+          link.download = `metais-menezes-estoque-${stamp}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        } catch (error) {
+          console.error('Erro ao gerar imagem vertical', error);
+          alert('Não consegui gerar a imagem agora. Recarregue a página e tente novamente.');
+        } finally {
+          document.body.classList.remove('export-mode');
+          exportBtn.disabled = false;
+          exportBtn.textContent = defaultLabel;
+        }
+      });
+    }
   </script>
 </body>
 </html>
