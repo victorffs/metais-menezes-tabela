@@ -2,7 +2,22 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 
-const tokens = JSON.parse(fs.readFileSync('projects/price-list/bling-tokens.json', 'utf8'));
+const tokensPath = 'projects/price-list/bling-tokens.json';
+let tokens = null;
+
+function loadTokens() {
+  if (!fs.existsSync(tokensPath)) {
+    throw new Error('Token file not found.');
+  }
+  tokens = JSON.parse(fs.readFileSync(tokensPath, 'utf8'));
+}
+
+function getAccessToken() {
+  if (!tokens) {
+    loadTokens();
+  }
+  return tokens.access_token;
+}
 
 // Regex to extract dimensions from product name: "Prateleira ... 122x23cm"
 // Matches: "122x23cm" or "122x23"
@@ -14,7 +29,7 @@ async function fetchAllProducts(page = 1, allProducts = []) {
       hostname: 'www.bling.com.br',
       path: `/Api/v3/produtos?nome=Prateleira&limite=100&pagina=${page}&criterio=2`, // criterio 2 = Última alteração? Or simple active.
       method: 'GET',
-      headers: { 'Authorization': `Bearer ${tokens.access_token}` }
+      headers: { 'Authorization': `Bearer ${getAccessToken()}` }
     };
 
     const req = https.request(options, (res) => {
@@ -64,7 +79,7 @@ async function fetchStock(productIds) {
         hostname: 'www.bling.com.br',
         path: `/Api/v3/estoques/saldos?${params}`,
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${tokens.access_token}` }
+        headers: { 'Authorization': `Bearer ${getAccessToken()}` }
       };
       
       const req = https.request(options, (res) => {
@@ -159,28 +174,81 @@ async function run() {
 
   const sortedGroups = Object.keys(groups).sort((a, b) => parseInt(a) - parseInt(b)).map(k => groups[k]);
 
-  // Read HTML, Replace Data, Write HTML
   const htmlPath = 'projects/price-list/index.html';
+  if (!fs.existsSync(htmlPath)) {
+      console.error('HTML file not found.');
+      return;
+  }
+  
   let html = fs.readFileSync(htmlPath, 'utf8');
 
-  // Regex to replace the const data = [...] block
-  // We look for "const data = [" ... "];"
+  // Extract current data from HTML to compare
+  const regex = /const data = \[([\s\S]*?)\];/m;
+  const match = html.match(regex);
+  const currentDataString = match ? `[${match[1]}]` : '[]';
+  
+  // Normalize strings for comparison (remove whitespace/newlines)
+  const normalize = (str) => JSON.stringify(JSON.parse(str));
+  
+  const newDataJson = JSON.stringify(sortedGroups); // Already object structure
+  
+  // We need to compare the object structure.
+  // Let's just compare the generated JSON strings.
   const dataString = JSON.stringify(sortedGroups, null, 2);
-  const newScript = `const data = ${dataString};`;
   
-  // Safe replacement using a marker or regex that captures the variable definition
-  const regex = /const data = \[\s*\{[\s\S]*?\}\s*\];/m;
-  
-  // If regex fails (structure changed), we might need a placeholder in HTML.
-  // But since I wrote the HTML, I know the structure.
+  let hasChanges = true;
+  try {
+      // Parse current JS array content to JSON to compare accurately
+      // The content inside `const data = [...]` is valid JS/JSON.
+      // However, it might have trailing commas or keys without quotes if manually edited (though I generate valid JSON).
+      // Since I generate it with JSON.stringify, text comparison should work if format is stable.
+      
+      // Let's strip spaces from both to be safe.
+      const s1 = currentDataString.replace(/\s/g, '');
+      const s2 = JSON.stringify(sortedGroups).replace(/\s/g, '');
+      
+      if (s1 === s2) {
+          hasChanges = false;
+      }
+  } catch (e) {
+      console.log("Error comparing data, assuming changes present.");
+  }
+
+  if (!hasChanges) {
+      console.log('No changes detected in stock/prices. Skipping update.');
+      return;
+  }
+
+  console.log('Changes detected! Updating HTML...');
   
   if (regex.test(html)) {
+      // Reconstruct the full variable definition
+      const newScript = `const data = ${dataString};`;
       html = html.replace(regex, newScript);
       fs.writeFileSync(htmlPath, html);
       console.log('HTML updated successfully.');
+      
+      // Push changes
+      try {
+          // Changed to execute git commands from within the project directory
+          const cmd = 'git add index.html && git commit -m "Auto-update stock via Bling API" && git push';
+          require('child_process').execSync(cmd, { cwd: 'projects/price-list' });
+          console.log('Git push successful.');
+      } catch (e) {
+          console.error('Git push failed:', e.message);
+      }
   } else {
       console.error('Could not find data block in HTML.');
   }
 }
 
-run();
+// Check/Refresh token before running
+// We can just run the refresh script logic here or require it
+try {
+    require('child_process').execSync('node projects/price-list/refresh-token.js', { stdio: 'inherit' });
+    loadTokens();
+    run();
+} catch (e) {
+    console.error("Failed to refresh token:", e.message);
+    process.exit(1);
+}
