@@ -1,0 +1,204 @@
+name: Update Stock from Bling
+
+on:
+  repository_dispatch:
+    types: [bling-stock-update]
+  workflow_dispatch: # permite rodar manualmente pelo GitHub UI
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Refresh Bling token
+        id: refresh
+        env:
+          BLING_CLIENT_ID: ${{ secrets.BLING_CLIENT_ID }}
+          BLING_CLIENT_SECRET: ${{ secrets.BLING_CLIENT_SECRET }}
+          BLING_REFRESH_TOKEN: ${{ secrets.BLING_REFRESH_TOKEN }}
+        run: |
+          RESPONSE=$(curl -s -X POST https://www.bling.com.br/Api/v3/oauth/token \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Authorization: Basic $(echo -n "$BLING_CLIENT_ID:$BLING_CLIENT_SECRET" | base64 -w 0)" \
+            -d "grant_type=refresh_token&refresh_token=$BLING_REFRESH_TOKEN")
+
+          echo "Token response received"
+          ACCESS_TOKEN=$(echo "$RESPONSE" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d).access_token)")
+          NEW_REFRESH=$(echo "$RESPONSE" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d).refresh_token)")
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "undefined" ]; then
+            echo "Failed to get access token. Response: $RESPONSE"
+            exit 1
+          fi
+
+          echo "access_token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
+          echo "refresh_token=$NEW_REFRESH" >> $GITHUB_OUTPUT
+
+      - name: Save new refresh token to GitHub Secrets
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          NEW_REFRESH="${{ steps.refresh.outputs.refresh_token }}"
+          ENCRYPTED=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/secrets/public-key \
+            -H "Authorization: Bearer $GH_PAT")
+          KEY_ID=$(echo "$ENCRYPTED" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d).key_id)")
+          PUBLIC_KEY=$(echo "$ENCRYPTED" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d).key)")
+
+          # Encripta e atualiza o secret
+          node -e "
+            const sodium = require('libsodium-wrappers');
+            sodium.ready.then(() => {
+              const key = Buffer.from('$PUBLIC_KEY', 'base64');
+              const msg = Buffer.from('$NEW_REFRESH');
+              const encrypted = sodium.crypto_box_seal(msg, key);
+              const encoded = Buffer.from(encrypted).toString('base64');
+              const https = require('https');
+              const body = JSON.stringify({ encrypted_value: encoded, key_id: '$KEY_ID' });
+              const req = https.request({
+                hostname: 'api.github.com',
+                path: '/repos/${{ github.repository }}/actions/secrets/BLING_REFRESH_TOKEN',
+                method: 'PUT',
+                headers: {
+                  'Authorization': 'Bearer $GH_PAT',
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'update-stock-action',
+                  'Content-Length': Buffer.byteLength(body)
+                }
+              }, (res) => {
+                console.log('Secret update status:', res.statusCode);
+              });
+              req.write(body);
+              req.end();
+            });
+          "
+
+      - name: Fetch stock from Bling and update index.html
+        env:
+          BLING_ACCESS_TOKEN: ${{ steps.refresh.outputs.access_token }}
+        run: |
+          node -e "
+          const https = require('https');
+          const fs = require('fs');
+
+          const token = process.env.BLING_ACCESS_TOKEN;
+
+          function apiGet(path) {
+            return new Promise((resolve, reject) => {
+              const req = https.request({
+                hostname: 'www.bling.com.br',
+                path,
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token }
+              }, (res) => {
+                let body = '';
+                res.on('data', c => body += c);
+                res.on('end', () => {
+                  if (res.statusCode >= 200 && res.statusCode < 300) resolve(JSON.parse(body));
+                  else reject(new Error('HTTP ' + res.statusCode + ': ' + body.slice(0, 200)));
+                });
+              });
+              req.on('error', reject);
+              req.end();
+            });
+          }
+
+          function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+          const dimRegex = /(\d+)[xX](\d+)(?:cm)?/i;
+
+          async function fetchAllProducts(page = 1, all = []) {
+            const res = await apiGet('/Api/v3/produtos?nome=Prateleira&limite=100&pagina=' + page + '&criterio=2');
+            if (!res.data || res.data.length === 0) return all;
+            const active = res.data.filter(p => p.situacao === 'A');
+            all = all.concat(active);
+            if (res.data.length === 100) {
+              await sleep(400);
+              return fetchAllProducts(page + 1, all);
+            }
+            return all;
+          }
+
+          async function fetchStock(ids) {
+            const stockMap = {};
+            for (let i = 0; i < ids.length; i += 50) {
+              const chunk = ids.slice(i, i + 50);
+              const params = chunk.map(id => 'idsProdutos[]=' + id).join('&');
+              const res = await apiGet('/Api/v3/estoques/saldos?' + params);
+              if (res.data) res.data.forEach(item => { stockMap[item.produto.id] = item.saldoFisicoTotal || 0; });
+              await sleep(400);
+            }
+            return stockMap;
+          }
+
+          async function main() {
+            console.log('Fetching products...');
+            const products = await fetchAllProducts();
+            console.log('Found', products.length, 'active products');
+
+            const stockMap = await fetchStock(products.map(p => p.id));
+
+            const aggregated = {};
+            products.forEach(p => {
+              const m = p.nome.match(dimRegex);
+              if (!m) return;
+              const width = parseInt(m[1]), depth = parseInt(m[2]);
+              const key = width + 'x' + depth;
+              const stock = stockMap[p.id] || 0;
+              if (stock > 0) {
+                if (aggregated[key]) {
+                  aggregated[key].qty += stock;
+                  aggregated[key].price = Math.max(aggregated[key].priceValue, p.preco);
+                } else {
+                  aggregated[key] = { dim: width + 'cm x ' + depth + 'cm', width, depth, qty: stock, price: '\$ ' + p.preco, priceValue: p.preco, unit: true };
+                }
+              }
+            });
+
+            const items = Object.values(aggregated).sort((a, b) => a.depth !== b.depth ? a.depth - b.depth : a.width - b.width);
+
+            const groups = {};
+            items.forEach(item => {
+              if (!groups[item.depth]) groups[item.depth] = { depth: item.depth + 'cm', items: [] };
+              groups[item.depth].items.push(item);
+            });
+            const sortedGroups = Object.keys(groups).sort((a, b) => parseInt(a) - parseInt(b)).map(k => groups[k]);
+
+            let html = fs.readFileSync('index.html', 'utf8');
+            const regex = /const data = \[[\s\S]*?\];/m;
+            const newData = 'const data = ' + JSON.stringify(sortedGroups, null, 2) + ';';
+
+            const current = html.match(regex)?.[0] || '';
+            if (current.replace(/\s/g, '') === newData.replace(/\s/g, '')) {
+              console.log('No changes detected, skipping.');
+              return;
+            }
+
+            html = html.replace(regex, newData);
+            fs.writeFileSync('index.html', html);
+            console.log('index.html updated with', items.length, 'items across', sortedGroups.length, 'groups');
+          }
+
+          main().catch(e => { console.error(e); process.exit(1); });
+          "
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "Auto-update stock via Bling webhook"
+            git push
+          fi
