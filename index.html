@@ -702,13 +702,14 @@
 
         try {
           const html2canvas = await ensureHtml2Canvas();
-          if (!isMobile) {
-            document.body.classList.add('export-mode');
-            await sleep(80);
-          }
+          document.body.classList.add('export-mode');
+          await sleep(80);
           const card = document.querySelector('.card');
+          const scale = isMobile
+            ? (window.innerWidth / 1080) * window.devicePixelRatio
+            : 2;
           const canvas = await html2canvas(card, {
-            scale: isMobile ? Math.min(window.devicePixelRatio, 2) : 2,
+            scale,
             useCORS: true,
             backgroundColor: '#f8fafc'
           });
@@ -721,7 +722,7 @@
           console.error('Erro ao gerar imagem', error);
           alert('Não consegui gerar a imagem agora. Recarregue a página e tente novamente.');
         } finally {
-          if (!isMobile) document.body.classList.remove('export-mode');
+          document.body.classList.remove('export-mode');
           exportBtn.disabled = false;
           exportBtn.textContent = defaultLabel;
         }
