@@ -216,8 +216,8 @@
         <p>📋 Estoque Atual &bull; <span id="date"></span></p>
       </div>
       <div class="export-bar">
-        <button id="exportImageBtn" class="export-btn">Gerar imagem completa</button>
-        <p class="export-hint">Baixa um PNG em modo desktop com toda a tabela</p>
+        <button id="exportImageBtn" class="export-btn">Exportar Estoque Atual</button>
+        <p class="export-hint">Baixa um PNG com toda a tabela de estoque</p>
       </div>
     </div>
     <div class="content" id="list"></div>
@@ -695,17 +695,20 @@
 
     if (exportBtn) {
       exportBtn.addEventListener('click', async () => {
+        const isMobile = window.innerWidth < 768;
         const defaultLabel = exportBtn.textContent;
         exportBtn.disabled = true;
-        exportBtn.textContent = 'Gerando PNG...';
+        exportBtn.textContent = 'Exportando...';
 
         try {
           const html2canvas = await ensureHtml2Canvas();
-          document.body.classList.add('export-mode');
-          await sleep(80);
+          if (!isMobile) {
+            document.body.classList.add('export-mode');
+            await sleep(80);
+          }
           const card = document.querySelector('.card');
           const canvas = await html2canvas(card, {
-            scale: window.devicePixelRatio > 1 ? window.devicePixelRatio : 2,
+            scale: isMobile ? Math.min(window.devicePixelRatio, 2) : 2,
             useCORS: true,
             backgroundColor: '#f8fafc'
           });
@@ -715,10 +718,10 @@
           link.href = canvas.toDataURL('image/png');
           link.click();
         } catch (error) {
-          console.error('Erro ao gerar imagem vertical', error);
+          console.error('Erro ao gerar imagem', error);
           alert('Não consegui gerar a imagem agora. Recarregue a página e tente novamente.');
         } finally {
-          document.body.classList.remove('export-mode');
+          if (!isMobile) document.body.classList.remove('export-mode');
           exportBtn.disabled = false;
           exportBtn.textContent = defaultLabel;
         }
