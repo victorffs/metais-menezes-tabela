@@ -705,9 +705,7 @@
           document.body.classList.add('export-mode');
           await sleep(80);
           const card = document.querySelector('.card');
-          const scale = isMobile
-            ? (window.innerWidth / 1080) * window.devicePixelRatio
-            : 2;
+          const scale = isMobile ? window.innerWidth / 1080 : 2;
           const canvas = await html2canvas(card, {
             scale,
             useCORS: true,
