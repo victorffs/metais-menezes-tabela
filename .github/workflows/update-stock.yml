@@ -48,6 +48,8 @@ jobs:
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
+          npm install --no-save libsodium-wrappers
+
           NEW_REFRESH="${{ steps.refresh.outputs.refresh_token }}"
           ENCRYPTED=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/secrets/public-key \
             -H "Authorization: Bearer $GH_PAT")
